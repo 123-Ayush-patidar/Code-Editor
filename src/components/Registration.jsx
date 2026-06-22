@@ -1,8 +1,15 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 // import "./AuthPage.css";
 
 export default function AuthPage() {
+  const navigate = useNavigate();
   const [isRegister, setIsRegister] = useState(false);
+
+  const handleSubmit = (e) => {
+  e.preventDefault();
+  navigate("/dashboard");
+};
 
   return (
     <div className="auth-page">
@@ -10,7 +17,7 @@ export default function AuthPage() {
         
         {/* LOGIN FORM */}
         <div className="form-box login-box">
-          <form>
+          <form onSubmit={handleSubmit}>
             <h2>Login</h2>
 
             <input type="email" placeholder="Email" />

@@ -272,3 +272,46 @@
     display: none;
   }
 }
+
+
+@keyframes float {
+  0% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-10px);
+  }
+
+  100% {
+    transform: translateY(0px);
+  }
+}
+
+.float-animation {
+  animation: float 3s ease-in-out infinite;
+}
+.heading{
+  padding-top: 30px;
+  padding-bottom: 30px;
+}
+.bottom-div{
+  padding-top: 100px;
+}
+.Save{
+  padding: 8px;
+  cursor: pointer;
+}
+.Run{
+  padding: 8px;
+  cursor: pointer;
+}
+.Setting{
+  padding: 5px;
+  cursor: pointer;
+}
+.user{
+  margin: 7px;
+  padding: 5px;
+  cursor: pointer;
+}
