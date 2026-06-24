@@ -1,14 +1,68 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useLoginMutation, useRegisterMutation } from "../redux/Authapi/AuthApi";
 // import "./AuthPage.css";
 
 export default function AuthPage() {
   const navigate = useNavigate();
+
   const [isRegister, setIsRegister] = useState(false);
 
-  const handleSubmit = (e) => {
+  const [register, { isLoading }] = useRegisterMutation();
+const [login, { isLoading: loginLoading }] = useLoginMutation();
+  const [registerData, setRegisterData] = useState({
+    username: "",
+    email: "",
+    password: "",
+  });
+
+  const [loginData, setLoginData] = useState({
+  email: "",
+  password: "",
+});
+
+const handleRegister = async (e) => {
   e.preventDefault();
-  navigate("/dashboard");
+
+  try {
+    const response = await register(registerData).unwrap();
+
+    console.log("Register Success:", response);
+
+    alert("Registration Successful!");
+
+    setRegisterData({
+      username: "",
+      email: "",
+      password: "",
+    });
+
+    setIsRegister(false);
+  } catch (error) {
+    console.error("Register Error:", error);
+    console.log("Error Data:", error?.data);
+    console.log("Error Status:", error?.status);
+
+    alert("Registration Failed");
+  }
+};
+
+const handleSubmit = async (e) => {
+  e.preventDefault();
+
+  try {
+    const response = await login(loginData).unwrap();
+
+    console.log("Login Success:", response);
+
+    navigate("/dashboard");
+  } catch (error) {
+    console.error("Login Error:", error);
+    console.log("Error Data:", error?.data);
+    console.log("Error Status:", error?.status);
+
+    alert("Login Failed");
+  }
 };
 
   return (
@@ -20,11 +74,35 @@ export default function AuthPage() {
           <form onSubmit={handleSubmit}>
             <h2>Login</h2>
 
-            <input type="email" placeholder="Email" />
-            <input type="password" placeholder="Password" />
+           <input
+              type="email"
+              placeholder="Email"
+              value={loginData.email}
+              onChange={(e) =>
+                setLoginData({
+                  ...loginData,
+                  email: e.target.value,
+                })
+              }
+            />
+            <input
+                type="password"
+                placeholder="Password"
+                value={loginData.password}
+                onChange={(e) =>
+                  setLoginData({
+                    ...loginData,
+                    password: e.target.value,
+                  })
+                }
+              />
 
-            <button type="submit" className="submit-btn">
-              Login
+          <button
+              type="submit"
+              className="submit-btn"
+              disabled={loginLoading}
+            >
+              {loginLoading ? "Logging in..." : "Login"}
             </button>
 
             <p>
@@ -38,15 +116,51 @@ export default function AuthPage() {
 
         {/* REGISTER FORM */}
         <div className="form-box register-box">
-          <form>
+          <form onSubmit={handleRegister}>
             <h2>Register</h2>
 
-            <input type="text" placeholder="Username" />
-            <input type="email" placeholder="Email" />
-            <input type="password" placeholder="Password" />
+            <input
+              type="text"
+              placeholder="Username"
+              value={registerData.username}
+              onChange={(e) =>
+                setRegisterData({
+                  ...registerData,
+                  username: e.target.value,
+                })
+              }
+            />
 
-            <button type="submit" className="submit-btn">
-              Register
+            <input
+              type="email"
+              placeholder="Email"
+              value={registerData.email}
+              onChange={(e) =>
+                setRegisterData({
+                  ...registerData,
+                  email: e.target.value,
+                })
+              }
+            />
+
+            <input
+              type="password"
+              placeholder="Password"
+              value={registerData.password}
+              onChange={(e) =>
+                setRegisterData({
+                  ...registerData,
+                  password: e.target.value,
+                })
+              }
+            />
+
+            <button
+              type="submit"
+              className="submit-btn"
+              disabled={isLoading}
+            >
+              {isLoading ? "Registering..." : "Register"}
             </button>
 
             <p>
