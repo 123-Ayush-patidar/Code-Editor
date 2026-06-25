@@ -5,7 +5,8 @@ export const AuthApi = createApi({
 
   baseQuery: fetchBaseQuery({
      // baseUrl: "http://192.168.3.161:8080",
-    baseUrl: "http://10.217.251.50:8086/api/auth",
+    // baseUrl: "http://10.217.251.50:8086/api/auth",
+    baseUrl: "http://localhost:8086/api/auth",
   }),
 
   endpoints: (builder) => ({
