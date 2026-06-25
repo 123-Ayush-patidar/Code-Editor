@@ -31,6 +31,8 @@ export default function Dashboard() {
       session.active ||
       !session.status
   );
+  const [sessions, setSessions] = useState([]);
+  const [sessionsError, setSessionsError] = useState(false);
   const [joinLoading, setJoinLoading] = useState(false);
 
   const handleSelectSession = (token) => {
@@ -68,6 +70,7 @@ export default function Dashboard() {
 
     setError("");
     setJoinLoading(true);
+
     setSessionsError(false);
 
     try {
