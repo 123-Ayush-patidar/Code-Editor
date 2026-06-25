@@ -39,5 +39,6 @@ export const SessionApi = createApi({
 export const {
   useCreateSessionMutation,
   useGetAllSessionsQuery,
+  useLazyGetAllSessionsQuery,
   useDeleteSessionMutation,
 } = SessionApi;

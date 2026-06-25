@@ -1,7 +1,7 @@
 ﻿import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaCode, FaRocket, FaLink, FaUsers, FaPlay } from "react-icons/fa";
-import { useCreateSessionMutation } from "../redux/SessionApi";
+import { useCreateSessionMutation, useGetAllSessionsQuery, useLazyGetAllSessionsQuery } from "../redux/SessionApi";
 
 const LANGUAGE_OPTIONS = [
   { value: "Java", label: "Java 17" },
@@ -22,6 +22,21 @@ export default function Dashboard() {
   const [error, setError] = useState("");
 
   const [createSession, { isLoading: creating }] = useCreateSessionMutation();
+  const [fetchSessions, { isLoading: loadingSessions }] = useLazyGetAllSessionsQuery();
+  const { data: activeSessions = [], isLoading: activeLoading, isError: activeError } = useGetAllSessionsQuery();
+  const activeSessionsToShow = (activeSessions || []).filter(
+    (session) =>
+      session.status === "ACTIVE" ||
+      session.isActive ||
+      session.active ||
+      !session.status
+  );
+  const [joinLoading, setJoinLoading] = useState(false);
+
+  const handleSelectSession = (token) => {
+    setSessionToken(token);
+    setError("");
+  };
 
   const handleCreateSession = async () => {
     if (!name.trim()) {
@@ -45,14 +60,43 @@ export default function Dashboard() {
     }
   };
 
-  const handleJoinSession = () => {
+  const handleJoinSession = async () => {
     if (!sessionToken.trim() || !joinName.trim()) {
       setError("Please enter a session link/token and your name.");
       return;
     }
 
     setError("");
-    navigate(`/editor/${language}`);
+    setJoinLoading(true);
+    setSessionsError(false);
+
+    try {
+      const sessionList = await fetchSessions().unwrap();
+      setSessions(sessionList || []);
+
+      const matchedSession = (sessionList || []).find(
+        (session) => (session.sessionToken || "").trim() === sessionToken.trim()
+      );
+
+      if (!matchedSession) {
+        setError("Session token not found. Please check your token.");
+        return;
+      }
+
+      navigate(`/editor/${matchedSession.programmingLanguage || language}`);
+    } catch (err) {
+      console.error(err);
+      setError("Unable to verify session token. Please try again.");
+      setSessionsError(true);
+    } finally {
+      setJoinLoading(false);
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.setItem("isAuthenticated", "false");
+    localStorage.removeItem("isAuthenticated");
+    navigate("/", { replace: true });
   };
 
   return (
@@ -68,19 +112,29 @@ export default function Dashboard() {
               <FaCode style={{ color: "#22d3ee", fontSize: 20 }} />
             </div>
             <h1 style={brandTitleStyle}>
-              CollabCode <span style={{ color: "#60a5fa" }}>IDE</span>
+              CodeHive <span style={{ color: "#60a5fa" }}>IDE</span>
             </h1>
           </div>
-          <button style={navButtonStyle}>Dashboard</button>
+          <div style={navActionsStyle}>
+            <button style={navButtonStyle}>Dashboard</button>
+            <button style={{ ...navButtonStyle, marginLeft: 12, background: "rgba(248,113,113,0.16)", color: "#fecaca" }} onClick={handleLogout}>
+              Logout
+            </button>
+          </div>
         </div>
       </nav>
 
       <main style={mainStyle}>
         <div style={heroStyle}>
           <div style={heroIconStyle}>
-            <FaUsers style={{ color: "#38bdf8", fontSize: 28 }} />
+            {/* <FaUsers style={{ color: "#38bdf8", fontSize: 28 }} /> */}
+            <img
+              src="/logo.png"
+              alt="CodeHive Logo"
+              style={{ width: 250, maxWidth: "100%", display: "block", margin: "0 auto " }}
+            />
           </div>
-          <h1 style={heroTitleStyle}>CollabCode</h1>
+          {/* <h1 style={heroTitleStyle}>CodeHive</h1> */}
           <p style={heroTextStyle}>Real-time collaborative coding — write, run, and debug together.</p>
         </div>
 
@@ -212,6 +266,40 @@ export default function Dashboard() {
             </div>
           </section>
         </div>
+
+        <section style={sessionListSectionStyle}>
+          <div style={sectionHeaderStyle}>
+            <h2 style={sessionSectionTitleStyle}>Active Sessions</h2>
+            <p style={sessionSectionSubtitleStyle}>Fetch and display Sessions.</p>
+          </div>
+
+          {activeLoading ? (
+            <div style={sessionStatusStyle}>Loading active sessions...</div>
+          ) : activeError ? (
+            <div style={{ ...sessionStatusStyle, color: "#fda4af" }}>
+              Unable to load active sessions. Please refresh.
+            </div>
+          ) : activeSessionsToShow.length === 0 ? (
+            <div style={sessionStatusStyle}>No active sessions found yet.</div>
+          ) : (
+            <div style={sessionCardsGridStyle}>
+              {activeSessionsToShow.map((session) => (
+                <div key={session.id} style={sessionCardStyle}>
+                  <div style={sessionCardHeaderStyle}>
+                    <span style={sessionLanguageBadgeStyle}>{session.programmingLanguage}</span>
+                    <span style={sessionStatusBadgeStyle}>{session.status ?? "ACTIVE"}</span>
+                  </div>
+                  <h3 style={sessionCardTitleStyle}>{session.hostName}</h3>
+                  <p style={sessionCardTextStyle}>{session.publicRoom ? "Public room" : "Private room"}</p>
+                  <p style={sessionCardTextStyle}>Token: {session.sessionToken}</p>
+                  <button style={sessionSelectButtonStyle} onClick={() => handleSelectSession(session.sessionToken)}>
+                    Select Token
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
       </main>
     </div>
   );
@@ -267,152 +355,139 @@ const backgroundBlur3 = {
 };
 
 const navStyle = {
-  borderBottom: "1px solid rgba(30,58,138,0.6)",
-  background: "rgba(7,20,38,0.85)",
-  backdropFilter: "blur(16px)",
-  position: "sticky",
-  top: 0,
-  zIndex: 50,
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+  padding: "24px 0",
+  position: "relative",
+  zIndex: 2,
 };
 
 const navInnerStyle = {
-  maxWidth: 1100,
-  margin: "0 auto",
-  padding: "14px 28px",
+  width: "100%",
+  maxWidth: 1180,
+  padding: "0 24px",
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+};
+
+const navActionsStyle = {
   display: "flex",
   alignItems: "center",
-  justifyContent: "space-between",
+  gap: 12,
 };
 
 const brandStyle = {
   display: "flex",
   alignItems: "center",
-  gap: 14,
+  gap: 12,
 };
 
 const brandIconStyle = {
-  width: 48,
-  height: 48,
+  width: 44,
+  height: 44,
+  display: "grid",
+  placeItems: "center",
+  background: "rgba(56,189,248,0.12)",
   borderRadius: 14,
-  border: "1.5px solid rgba(6,182,212,0.5)",
-  background: "rgba(6,182,212,0.08)",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  boxShadow: "0 0 18px rgba(6,182,212,0.15)",
 };
 
 const brandTitleStyle = {
-  fontSize: 26,
-  fontWeight: 800,
+  fontSize: 22,
   margin: 0,
-  letterSpacing: "-0.02em",
-  lineHeight: 1,
 };
 
 const navButtonStyle = {
-  border: "1.5px solid rgba(6,182,212,0.45)",
-  background: "rgba(6,182,212,0.07)",
-  color: "#e2e8f0",
-  padding: "8px 20px",
-  borderRadius: 12,
-  fontSize: 13,
-  fontWeight: 600,
+  padding: "12px 24px",
+  background: "rgba(96,165,250,0.14)",
+  border: "1px solid rgba(96,165,250,0.20)",
+  borderRadius: 999,
+  color: "#96cdfb",
   cursor: "pointer",
-  display: "flex",
-  alignItems: "center",
-  gap: 7,
-  transition: "background 0.2s",
+
 };
 
 const mainStyle = {
+  width: "100%",
+  maxWidth: 1180,
+  margin: "0 auto",
+  padding: "0 24px 60px",
+  zIndex: 2,
   position: "relative",
-  zIndex: 10,
-  padding: "52px 20px 80px",
 };
 
 const heroStyle = {
+  display: "grid",
+  placeItems: "center",
   textAlign: "center",
-  marginBottom: 40,
+  padding: "10px 0 40px",
 };
 
 const heroIconStyle = {
-  width: 84,
-  height: 84,
-  margin: "0 auto 18px",
-  borderRadius: 26,
-  background: "linear-gradient(135deg, rgba(37,99,235,0.16), rgba(56,189,248,0.12))",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  boxShadow: "0 0 40px rgba(14,165,233,0.15)",
+  width: 190,
+  height: 190,
+  display: "grid",
+  placeItems: "center",
+  borderRadius: "50%",
+  background: "rgba(56,189,248,0.15)",
+  margin: "0 auto 10px",
 };
 
 const heroTitleStyle = {
-  fontSize: 42,
-  fontWeight: 900,
+  fontSize: 44,
   margin: 0,
   letterSpacing: "-0.04em",
+  color: "#60a5fa" 
 };
 
 const heroTextStyle = {
-  fontSize: 16,
   color: "#94a3b8",
-  marginTop: 12,
-  maxWidth: 680,
-  marginLeft: "auto",
-  marginRight: "auto",
+  maxWidth: 720,
+  margin: "16px auto 0",
+  lineHeight: 1.75,
 };
 
 const gridStyle = {
   display: "grid",
   gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
   gap: 24,
+  alignItems: "start",
 };
 
 const panelStyle = {
-  background: "rgba(15,23,42,0.95)",
-  border: "1px solid rgba(59,130,246,0.18)",
-  borderRadius: 28,
-  padding: 32,
-  boxShadow: "0 20px 60px rgba(0,0,0,0.22)",
+  background: "rgba(15,23,42,0.92)",
+  borderRadius: 24,
+  padding: 28,
+  boxShadow: "0 20px 80px rgba(0,0,0,0.12)",
+  border: "1px solid rgba(148,163,184,0.12)",
 };
 
 const panelHeaderStyle = {
   display: "flex",
+  gap: 16,
   alignItems: "center",
-  gap: 12,
   marginBottom: 24,
 };
 
 const panelBadgeStyle = {
   width: 44,
   height: 44,
-  borderRadius: 14,
-  background: "rgba(59,130,246,0.12)",
   display: "grid",
   placeItems: "center",
+  borderRadius: 14,
+  background: "rgba(96,165,250,0.12)",
 };
 
 const panelTitleStyle = {
-  fontSize: 24,
-  fontWeight: 800,
+  fontSize: 20,
   margin: 0,
 };
 
 const panelSubtitleStyle = {
-  fontSize: 14,
-  color: "#64748b",
-  margin: 0,
-};
-
-const errorStyle = {
-  marginBottom: 20,
-  padding: "14px 16px",
-  borderRadius: 16,
-  background: "rgba(248,113,113,0.12)",
-  border: "1px solid rgba(248,113,113,0.2)",
-  color: "#fca5a5",
+  color: "#94a3b8",
+  margin: "6px 0 0",
+  lineHeight: 1.6,
 };
 
 const formGridStyle = {
@@ -425,96 +500,183 @@ const labelStyle = {
   gap: 10,
   color: "#cbd5e1",
   fontSize: 14,
-  fontWeight: 600,
 };
 
 const inputStyle = {
   width: "100%",
-  background: "#0f172a",
-  border: "1px solid rgba(148,163,184,0.16)",
-  borderRadius: 16,
   padding: "14px 16px",
+  borderRadius: 16,
+  border: "1px solid rgba(148,163,184,0.18)",
+  background: "rgba(15,23,42,0.9)",
   color: "#e2e8f0",
-  outline: "none",
-  fontSize: 15,
-  transition: "border-color 0.2s, box-shadow 0.2s",
 };
 
 const selectStyle = {
-  width: "100%",
-  background: "#0f172a",
-  border: "1px solid rgba(148,163,184,0.16)",
-  borderRadius: 16,
-  padding: "14px 16px",
-  color: "#e2e8f0",
-  outline: "none",
-  fontSize: 15,
-  cursor: "pointer",
-  transition: "border-color 0.2s, box-shadow 0.2s",
+  ...inputStyle,
+  appearance: "none",
 };
 
 const toggleRowStyle = {
   display: "flex",
-  alignItems: "center",
   justifyContent: "space-between",
-  padding: "16px 18px",
-  borderRadius: 18,
-  background: "rgba(255,255,255,0.03)",
-  border: "1px solid rgba(148,163,184,0.12)",
+  alignItems: "center",
+  gap: 16,
 };
 
 const toggleTitleStyle = {
   margin: 0,
-  fontSize: 15,
   fontWeight: 600,
 };
 
 const toggleSubtitleStyle = {
   margin: 0,
-  fontSize: 13,
   color: "#94a3b8",
+  fontSize: 13,
+  lineHeight: 1.5,
 };
 
 const toggleButtonStyle = {
-  width: 52,
-  height: 28,
+  width: 56,
+  height: 32,
   borderRadius: 999,
   border: "none",
   position: "relative",
-  cursor: "pointer",
+  padding: 4,
+  display: "flex",
+  alignItems: "center",
 };
 
 const toggleCircleStyle = {
   position: "absolute",
-  top: 4,
-  width: 22,
-  height: 22,
+  width: 24,
+  height: 24,
   borderRadius: "50%",
   background: "#fff",
-  transition: "left 0.2s",
+  transition: "left 0.2s ease",
 };
 
 const primaryButtonStyle = {
   display: "inline-flex",
+  gap: 10,
   alignItems: "center",
   justifyContent: "center",
-  gap: 10,
-  width: "100%",
-  border: "none",
+  padding: "14px 20px",
   borderRadius: 16,
-  padding: "14px 0",
-  background: "linear-gradient(135deg, #7c3aed 0%, #2563eb 55%, #0891b2 100%)",
+  border: "none",
+  background: "linear-gradient(135deg, #2563eb 0%, #22d3ee 100%)",
   color: "#fff",
-  fontSize: 15,
   fontWeight: 700,
   cursor: "pointer",
-  boxShadow: "0 20px 40px rgba(15,23,42,0.25)",
-  transition: "transform 0.2s, filter 0.2s",
+};
+
+const errorStyle = {
+  background: "rgba(248,113,113,0.12)",
+  color: "#fecaca",
+  padding: "12px 16px",
+  borderRadius: 16,
+  marginBottom: 20,
 };
 
 const infoBoxStyle = {
-  padding: "18px 20px",
+  padding: "18px",
+  borderRadius: 20,
+  background: "rgba(255,255,255,0.03)",
+  border: "1px solid rgba(148,163,184,0.16)",
+};
+
+const sessionListSectionStyle = {
+  marginTop: 36,
+  padding: 28,
+  background: "rgba(15,23,42,0.92)",
+  borderRadius: 24,
+  border: "1px solid rgba(148,163,184,0.12)",
+  boxShadow: "0 20px 80px rgba(0,0,0,0.12)",
+};
+
+const sectionHeaderStyle = {
+  display: "flex",
+  justifyContent: "space-between",
+  gap: 16,
+  alignItems: "center",
+  marginBottom: 18,
+};
+
+const sessionSectionTitleStyle = {
+  fontSize: 20,
+  margin: 0,
+};
+
+const sessionSectionSubtitleStyle = {
+  color: "#94a3b8",
+  margin: 0,
+  lineHeight: 1.6,
+};
+
+const sessionStatusStyle = {
+  color: "#cbd5e1",
+  padding: "18px",
   borderRadius: 18,
-  background: "rgba(15,23,42,0.6)",
+  background: "rgba(255,255,255,0.03)",
+};
+
+const sessionCardsGridStyle = {
+  display: "grid",
+  gap: 16,
+  gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+};
+
+const sessionCardStyle = {
+  padding: 20,
+  borderRadius: 20,
+  background: "rgba(30,41,59,0.95)",
   border: "1px solid rgba(148,163,184,0.12)",
 };
+
+const sessionCardHeaderStyle = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: 12,
+  marginBottom: 12,
+};
+
+const sessionLanguageBadgeStyle = {
+  padding: "6px 12px",
+  borderRadius: 999,
+  background: "rgba(59,130,246,0.15)",
+  color: "#93c5fd",
+  fontSize: 12,
+  fontWeight: 700,
+};
+
+const sessionStatusBadgeStyle = {
+  padding: "6px 12px",
+  borderRadius: 999,
+  background: "rgba(16,185,129,0.15)",
+  color: "#6ee7b7",
+  fontSize: 12,
+  fontWeight: 700,
+};
+
+const sessionCardTitleStyle = {
+  fontSize: 16,
+  margin: "0 0 8px",
+};
+
+const sessionCardTextStyle = {
+  color: "#cbd5e1",
+  fontSize: 14,
+  margin: "4px 0",
+};
+
+const sessionSelectButtonStyle = {
+  marginTop: 16,
+  width: "100%",
+  padding: "12px 16px",
+  borderRadius: 16,
+  border: "none",
+  background: "#2563eb",
+  color: "#fff",
+  cursor: "pointer",
+};
+

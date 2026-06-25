@@ -1,28 +1,47 @@
-import React from 'react'
-import Registration from '../components/Registration'
-import { Route, Routes } from 'react-router-dom'
-import AuthPage from '../components/Registration'
-import Dashboard from '../components/Dashboard'
-import Editor from '../components/Editor'
+import React from "react";
+import { Route, Routes, Navigate } from "react-router-dom";
+import AuthPage from "../components/Registration";
+import Dashboard from "../components/Dashboard";
+import Editor from "../components/Editor";
+import ProtectedRoute from "./ProtectedRoute";
 
 const AppRoutes = () => {
+  const isAuthenticated =
+    localStorage.getItem("isAuthenticated");
+
   return (
-     <Routes>
-      {/* Authentication Routes */}
-      {/* <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Registration />} /> */}
+    <Routes>
+      {/* Login Page */}
+      <Route
+        path="/"
+        element={
+          isAuthenticated === "true"
+            ? <Navigate to="/dashboard" replace />
+            : <AuthPage />
+        }
+      />
 
-      <Route path="/" element={<AuthPage />} />
+      {/* Protected Dashboard */}
+      <Route
+        path="/dashboard"
+        element={
+          <ProtectedRoute>
+            <Dashboard />
+          </ProtectedRoute>
+        }
+      />
 
-      <Route path="/dashboard" element={<Dashboard />} />
-
-      <Route path="/editor/:language" element={<Editor />} />
-
-
-      {/* 404 Route */}
-      {/* <Route path="*" element={<NotFound />} /> */}
+      {/* Protected Editor */}
+      <Route
+        path="/editor/:language"
+        element={
+          <ProtectedRoute>
+            <Editor />
+          </ProtectedRoute>
+        }
+      />
     </Routes>
-  )
-}
+  );
+};
 
-export default AppRoutes
+export default AppRoutes;

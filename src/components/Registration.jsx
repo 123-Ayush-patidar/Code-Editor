@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import { useLoginMutation, useRegisterMutation } from "../redux/Authapi/AuthApi";
 // import "./AuthPage.css";
 
@@ -9,7 +11,7 @@ export default function AuthPage() {
   const [isRegister, setIsRegister] = useState(false);
 
   const [register, { isLoading }] = useRegisterMutation();
-const [login, { isLoading: loginLoading }] = useLoginMutation();
+  const [login, { isLoading: loginLoading }] = useLoginMutation();
   const [registerData, setRegisterData] = useState({
     username: "",
     email: "",
@@ -17,9 +19,9 @@ const [login, { isLoading: loginLoading }] = useLoginMutation();
   });
 
   const [loginData, setLoginData] = useState({
-  email: "",
-  password: "",
-});
+    email: "",
+    password: "",
+  });
 
 const handleRegister = async (e) => {
   e.preventDefault();
@@ -28,8 +30,15 @@ const handleRegister = async (e) => {
     const response = await register(registerData).unwrap();
 
     console.log("Register Success:", response);
-
-    alert("Registration Successful!");
+    toast.success("Registration successful! Please log in.", {
+      position: "top-center",
+      autoClose: 5000,
+      hideProgressBar: false,
+      closeOnClick: true,
+      pauseOnHover: true,
+      draggable: true,
+      progress: undefined,
+    });
 
     setRegisterData({
       username: "",
@@ -43,7 +52,15 @@ const handleRegister = async (e) => {
     console.log("Error Data:", error?.data);
     console.log("Error Status:", error?.status);
 
-    alert("Registration Failed");
+    toast.error("Registration failed. Please try again.", {
+      position: "top-center",
+      autoClose: 5000,
+      hideProgressBar: false,
+      closeOnClick: true,
+      pauseOnHover: true,
+      draggable: true,
+      progress: undefined,
+    });
   }
 };
 
@@ -54,14 +71,35 @@ const handleSubmit = async (e) => {
     const response = await login(loginData).unwrap();
 
     console.log("Login Success:", response);
+    localStorage.setItem("isAuthenticated", "true");
 
-    navigate("/dashboard");
+    toast.success("Login successful! Redirecting...", {
+      position: "top-center",
+      autoClose: 5000,
+      hideProgressBar: false,
+      closeOnClick: true,
+      pauseOnHover: true,
+      draggable: true,
+      progress: undefined,
+    });
+
+    setTimeout(() => {
+      navigate("/dashboard", { replace: true });
+    }, 800);
   } catch (error) {
     console.error("Login Error:", error);
     console.log("Error Data:", error?.data);
     console.log("Error Status:", error?.status);
 
-    alert("Login Failed");
+    toast.error("Login failed. Please check your credentials.", {
+      position: "top-center",
+      autoClose: 5000,
+      hideProgressBar: false,
+      closeOnClick: true,
+      pauseOnHover: true,
+      draggable: true,
+      progress: undefined,
+    });
   }
 };
 
@@ -175,6 +213,11 @@ const handleSubmit = async (e) => {
         {/* SLIDING PANEL */}
         <div className="panel">
           <div className="panel-content panel-login">
+            <img
+              src="/logo.png"
+              alt="CodeHive Logo"
+              style={{ width: 340, maxWidth: "100%", display: "block", margin: "0 auto " }}
+            />
             <h1>WELCOME BACK!</h1>
             <p>Login to continue your journey</p>
 
@@ -187,6 +230,11 @@ const handleSubmit = async (e) => {
           </div>
 
           <div className="panel-content panel-register">
+            <img
+              src="/logo.png"
+              alt="CodeHive Logo"
+              style={{ width: 340, maxWidth: "100%", display: "block", margin: "0 auto" }}
+            />
             <h1>JOIN US</h1>
             <p>Create your account today</p>
 
@@ -199,6 +247,7 @@ const handleSubmit = async (e) => {
           </div>
         </div>
       </div>
+      <ToastContainer />
     </div>
   );
 }
