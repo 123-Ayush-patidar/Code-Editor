@@ -1,6 +1,6 @@
 ﻿import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { FaCode, FaRocket, FaLink, FaUsers, FaPlay } from "react-icons/fa";
+import { FaCode, FaRocket, FaLink, FaUsers, FaPlay, FaUserCircle } from "react-icons/fa";
 import { useCreateSessionMutation, useGetAllSessionsQuery, useLazyGetAllSessionsQuery } from "../redux/SessionApi";
 
 const LANGUAGE_OPTIONS = [
@@ -12,6 +12,7 @@ const LANGUAGE_OPTIONS = [
 ];
 
 export default function Dashboard() {
+
   const navigate = useNavigate();
 
   const [name, setName] = useState("");
@@ -20,17 +21,100 @@ export default function Dashboard() {
   const [joinName, setJoinName] = useState("");
   const [isPublic, setIsPublic] = useState(true);
   const [error, setError] = useState("");
-
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [createSession, { isLoading: creating }] = useCreateSessionMutation();
   const [fetchSessions, { isLoading: loadingSessions }] = useLazyGetAllSessionsQuery();
   const { data: activeSessions = [], isLoading: activeLoading, isError: activeError } = useGetAllSessionsQuery();
-  const activeSessionsToShow = (activeSessions || []).filter(
-    (session) =>
-      session.status === "ACTIVE" ||
-      session.isActive ||
-      session.active ||
-      !session.status
-  );
+  
+  console.log(localStorage.getItem("username"));
+console.log(localStorage.getItem("email"));
+  const getCurrentUserIdentity = () => {
+    try {
+      const storedUser = localStorage.getItem("user");
+      if (storedUser) {
+        const parsedUser = JSON.parse(storedUser);
+        return {
+          id: parsedUser.id || parsedUser._id || parsedUser.userId || "",
+          username: parsedUser.username || parsedUser.name || "",
+          email: parsedUser.email || "",
+        };
+      }
+    } catch (err) {
+      console.error("Unable to read current user from storage", err);
+    }
+
+    return {
+      id: localStorage.getItem("userId") || "",
+      username: localStorage.getItem("username") ,
+      email: localStorage.getItem("email") ,
+    };
+  };
+
+  const currentUser = getCurrentUserIdentity();
+  const currentUserDisplayName =
+    localStorage.getItem("sessionOwnerName") ||
+    localStorage.getItem("username") ||
+    currentUser.username ||
+    "";
+
+  const normalizeValue = (value) => String(value ?? "").trim().toLowerCase();
+
+  const getCreatedSessionTokens = () => {
+    try {
+      const storedTokens = localStorage.getItem("createdSessionTokens");
+      return storedTokens ? JSON.parse(storedTokens) : [];
+    } catch (err) {
+      console.error("Unable to read created session tokens", err);
+      return [];
+    }
+  };
+
+  const createdSessionTokens = getCreatedSessionTokens();
+
+  const isSessionOwnedByCurrentUser = (session) => {
+    const token = normalizeValue(session?.sessionToken);
+    if (createdSessionTokens.some((savedToken) => normalizeValue(savedToken) === token)) {
+      return true;
+    }
+
+    const userCandidates = [
+      currentUser.id,
+      currentUser.username,
+      currentUser.email,
+      currentUserDisplayName,
+      currentUser.username ? currentUser.username.split(" ")[0] : "",
+    ].map(normalizeValue).filter(Boolean);
+
+    const sessionCandidates = [
+      session?.userId,
+      session?.createdBy,
+      session?.createdById,
+      session?.ownerId,
+      session?.hostName,
+      session?.host?.name,
+      session?.host?.username,
+      session?.host?.email,
+      session?.user?.id,
+      session?.user?.userId,
+      session?.user?.username,
+      session?.user?.email,
+      session?.username,
+      session?.email,
+    ].map(normalizeValue).filter(Boolean);
+
+    return userCandidates.some((value) => sessionCandidates.includes(value));
+  };
+
+  const activeSessionsToShow = (activeSessions || [])
+    .filter(
+      (session) =>
+        session.status === "ACTIVE" ||
+        session.isActive ||
+        session.active ||
+        !session.status
+    )
+    .filter((session) => isSessionOwnedByCurrentUser(session));
+
   const [sessions, setSessions] = useState([]);
   const [sessionsError, setSessionsError] = useState(false);
   const [joinLoading, setJoinLoading] = useState(false);
@@ -52,9 +136,19 @@ export default function Dashboard() {
         hostName: name,
         programmingLanguage: language,
         publicRoom: isPublic,
+        userId: currentUser.id || undefined,
+        createdBy: currentUser.username || name,
+        userEmail: currentUser.email || undefined,
       }).unwrap();
 
-      setSessionToken(response.sessionToken || "");
+      const newToken = response.sessionToken || "";
+      if (newToken) {
+        const updatedTokens = [...new Set([...(getCreatedSessionTokens() || []), newToken])];
+        localStorage.setItem("createdSessionTokens", JSON.stringify(updatedTokens));
+        localStorage.setItem("sessionOwnerName", name);
+      }
+
+      setSessionToken(newToken);
       navigate(`/editor/${language}`);
     } catch (err) {
       setError("Unable to create session. Please try again.");
@@ -96,6 +190,11 @@ export default function Dashboard() {
     }
   };
 
+
+  const handleProfile = () => {
+    setShowProfileMenu(!showProfileMenu);
+  }
+
   const handleLogout = () => {
     localStorage.setItem("isAuthenticated", "false");
     localStorage.removeItem("isAuthenticated");
@@ -123,6 +222,35 @@ export default function Dashboard() {
             <button style={{ ...navButtonStyle, marginLeft: 12, background: "rgba(248,113,113,0.16)", color: "#fecaca" }} onClick={handleLogout}>
               Logout
             </button>
+           <div style={{ position: "relative" }}>
+                <button
+                    style={{
+                        ...navButtonStyle,
+                        marginLeft: 10,
+                        background: "rgba(144,221,249,0.18)",
+                        color: "#ffffff"
+                    }}
+                    onClick={handleProfile}
+                >
+                    <FaUserCircle size={22} />
+                </button>
+
+                {showProfileMenu && (
+                    <div style={profileMenuStyle}>
+                        <div
+                            style={profileMenuItemStyle}
+                            onClick={() => {
+                              console.log("Profile clicked");
+                                 navigate("/profile");
+                                setShowProfileMenu(false);
+                            }}
+                        >
+                            👤 Profile
+                        </div>
+                    </div>
+                )}
+              
+            </div>
           </div>
         </div>
       </nav>
@@ -683,3 +811,41 @@ const sessionSelectButtonStyle = {
   cursor: "pointer",
 };
 
+const profileMenuStyle = {
+    position: "absolute",
+    top: "55px",
+    right: 0,
+    width: "180px",
+    background: "#1e293b",
+    borderRadius: "10px",
+    boxShadow: "0 10px 30px rgba(0,0,0,.3)",
+    zIndex: 1000,
+};
+
+const profileMenuItemStyle = {
+    padding: "14px 18px",
+    color: "#fff",
+    cursor: "pointer",
+    borderBottom: "1px solid rgba(255,255,255,.08)"
+};
+
+const modalOverlayStyle = {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    width: "100%",
+    height: "100%",
+    background: "rgba(0,0,0,.6)",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 2000
+};
+
+const modalStyle = {
+    width: "420px",
+    background: "#1e293b",
+    color: "#fff",
+    padding: "30px",
+    borderRadius: "16px"
+};

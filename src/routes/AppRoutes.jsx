@@ -4,6 +4,7 @@ import AuthPage from "../components/Registration";
 import Dashboard from "../components/Dashboard";
 import Editor from "../components/Editor";
 import ProtectedRoute from "./ProtectedRoute";
+import Profile from "../components/Profile";
 
 const AppRoutes = () => {
   const isAuthenticated =
@@ -40,6 +41,7 @@ const AppRoutes = () => {
           </ProtectedRoute>
         }
       />
+       <Route path="/profile" element={<Profile />} />
     </Routes>
   );
 };

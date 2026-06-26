@@ -28,8 +28,21 @@ const handleRegister = async (e) => {
 
   try {
     const response = await register(registerData).unwrap();
-
+    localStorage.setItem("registerToken", response.token);
+    localStorage.setItem("username", registerData.username);
+    localStorage.setItem("email", registerData.email);
+    localStorage.setItem("userId", response.userId || response.id || "");
+    
+    const userData = {
+      id: response.userId || response.id || "",
+      username: registerData.username,
+      email: registerData.email,
+      token: response.token || "",
+    };
+    localStorage.setItem("user", JSON.stringify(userData));
+    
     console.log("Register Success:", response);
+    console.log("Stored User Data:", userData);
     toast.success("Registration successful! Please log in.", {
       position: "top-center",
       autoClose: 5000,
@@ -68,9 +81,29 @@ const handleSubmit = async (e) => {
   e.preventDefault();
 
   try {
-    const response = await login(loginData).unwrap();
+    const token = localStorage.getItem("registerToken");
+
+    const response = await login({
+      userData: loginData,
+      token,
+    }).unwrap();
+    localStorage.setItem("token", response.token);
+    
+    // Extract user data from response or use fallback from stored registration/login data
+    const userData = {
+      id: response.user?.id || response.userId || response._id || "",
+      username: response.user?.username || response.username || loginData.email?.split("@")[0] || localStorage.getItem("username") || "",
+      email: response.user?.email || response.email || loginData.email || "",
+      token: response.token || "",
+    };
+    
+    localStorage.setItem("user", JSON.stringify(userData));
+    localStorage.setItem("userId", userData.id);
+    localStorage.setItem("username", userData.username);
+    localStorage.setItem("email", userData.email);
 
     console.log("Login Success:", response);
+    console.log("Stored User Data:", userData);
     localStorage.setItem("isAuthenticated", "true");
 
     toast.success("Login successful! Redirecting...", {

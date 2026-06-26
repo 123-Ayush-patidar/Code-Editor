@@ -10,12 +10,14 @@ export const AuthApi = createApi({
   }),
 
   endpoints: (builder) => ({
-    login: builder.mutation({
-      query: (userData) => ({
+      login: builder.mutation({
+      query: ({ userData, token }) => ({
         url: "/login",
         method: "POST",
         body: userData,
-        responseHandler: "text",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       }),
     }),
 
